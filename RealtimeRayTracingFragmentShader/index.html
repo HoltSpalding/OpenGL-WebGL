@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html> 
+<head> 
+    <meta charset="utf-8"/>
+</head>
+<script src="setupgl.js"></script>
+
+<body>
+<canvas id='canvas' width='900' height='900'>
+</canvas>
+</body>
+<script id="vs" type="x-shader/x-vertex">
+   attribute vec3 aPosition;
+   varying   vec3 vPosition;
+   void main() {
+      gl_Position = vec4(aPosition, 1.0);
+      vPosition = aPosition;
+   }
+</script>
+<script id="fs" type="x-shader/x-fragment">
+    #define numberofshapes 2
+
+    precision mediump float;
+    uniform float time;
+    uniform float ballHeight;
+    varying vec3 vPosition;
+
+
+    struct Shape {
+        float type; 
+        vec3 center;
+        float scale; 
+        vec3 ambience;
+        vec3 specular; 
+        vec3 diffuse;
+        vec3 reflective;
+        float shininess;
+        float height;
+    };
+
+    struct Ray {
+        vec3 origin;
+        vec3 direction;
+    };
+    struct Light {
+        vec3 position;
+        float ambience;
+        float diffuse;
+        float specular; 
+    };
+
+    struct RayTracerOutput {
+        Ray reflectedRay;
+        vec3 color;
+    };
+    Shape shapes[numberofshapes];
+    Ray rays[1];
+    Light light[1];
+    float epsilon = 0.001;
+
+
+
+
+    void makeobjs() {
+        float x = vPosition.x;
+        float y = vPosition.y;
+        float z = vPosition.z;
+        float focalLength = 2.0;
+        vec3 color = vec3(0.0, 0.0, 0.0);
+
+
+        shapes[0].type = 0.0;
+        shapes[0].scale = 0.2;
+        shapes[0].ambience = vec3(0.5,0.5,0.5);
+        shapes[0].specular = vec3(1.0,1.0,1.0); 
+        shapes[0].diffuse = vec3(1.0,0.0,0.0);
+        shapes[0].reflective = vec3(0.5,0.5,0.5);
+        shapes[0].shininess = 15.0;
+        shapes[0].center = vec3(-1.0, ballHeight, -0.25);
+
+        shapes[1].type = 0.0;
+        shapes[1].center = vec3(sin(time), 1.0, sin(time));
+        shapes[1].scale = 0.2;
+        shapes[1].ambience = vec3(0.0,0.5,1.0);
+        shapes[1].specular = vec3(1.0,1.0,1.0); 
+        shapes[1].diffuse = vec3(0.5,0.5,0.5);
+        shapes[1].reflective = vec3(0.5,0.5,0.5);
+        shapes[1].shininess = 15.0;
+
+        rays[0].origin = vec3(0.0, 0.0, 4.0);
+        rays[0].direction = normalize(vec3(x-0.5, 0.5-y, -focalLength));
+        light[0].position = vec3(1.0, -1.0, 0.0);
+        light[0].ambience = 0.3;
+        light[0].diffuse = 0.5;
+        light[0].specular = 0.5;
+    }
+
+
+
+    float getCubeIntersection(Shape obj, Ray ray) {
+            return 0.0;
+    }
+
+    float getSphereIntersection(Shape obj, Ray ray) {
+        vec3 sphereCenter = obj.center;
+        float radius = obj.scale;
+        vec3 cameraSource = ray.origin;
+        vec3 cameraDirection = ray.direction;
+        vec3 distanceFromCenter = (cameraSource - sphereCenter);
+        float B = 2.0 * dot(cameraDirection, distanceFromCenter);
+        float C = dot(distanceFromCenter, distanceFromCenter) - pow(radius, 2.0);
+        float delta = pow(B, 2.0) - 4.0 * C;
+        float t = 0.0;
+        if (delta > 0.0) {
+            float sqRoot = sqrt(delta);
+            float t1 = (-B + sqRoot) / 2.0;
+            float t2 = (-B - sqRoot) / 2.0;
+            t = min(t1, t2);
+        }
+        if (delta == 0.0) {
+            t = -B / 2.0;
+        }
+        return t;
+    }
+    float getIntersection(Shape obj, Ray ray) {
+        if (obj.type == 0.0) {
+            return getSphereIntersection(obj, ray);
+        } else {
+            return getSphereIntersection(obj, ray);
+        }
+    }
+
+   
+    
+
+    vec3 getSphereIsectNormal(Shape obj, vec3 surfacePoint) {
+        return normalize(surfacePoint - obj.center);
+    }
+
+    /*vec3 getCubeIsectNormal(Shape obj, vec3 surfacePoint) {
+        //TODO
+        return vec4(0.0,0.0,0.0);
+    }*/
+
+    vec3 getIsectNormal(Shape obj, vec3 surfacePoint) {
+         if (obj.type == 0.0) {
+            return getSphereIsectNormal(obj, surfacePoint);
+        } else {
+            return getSphereIsectNormal(obj, surfacePoint);
+            //return getCubeIsectNormal(obj, surfacePoint);   
+        } 
+    } 
+
+    RayTracerOutput raytrace(Shape shapes[2], Ray ray, Light light) {
+
+
+        RayTracerOutput rayTracer;
+        Ray reflectionRay;
+        Shape closest;
+        float minT = 100000.0;
+        vec3 cameraSource = ray.origin;
+        vec3 cameraDirection = ray.direction;
+        vec3 lightSource = light.position;
+        vec3 color = vec3(0.0, 0.0, 0.0);
+        
+
+        for (int i=0; i < numberofshapes; i++) {
+            float t = getIntersection(shapes[i], ray);
+            if (t > 0.0 && t < minT) {
+                minT = t;
+                closest = shapes[i];
+            }
+        }
+
+
+
+
+        vec3 sphereCenter = closest.center;
+
+
+        if (minT > 0.0 && minT != 100000.0) {
+
+
+            vec3 surfacePoint = cameraSource + (minT * cameraDirection);
+            vec3 surfaceNormal = normalize(getIsectNormal(closest, surfacePoint));
+            
+            color = light.ambience * closest.ambience;
+            vec3 lhat = normalize(light.position - surfacePoint);
+
+            //shadows cud be a BIG problem 
+            float blocked = 0.0;
+            float tempt;
+            for (int i=0; i < numberofshapes; i++) {
+                Ray shadow;
+                shadow.direction = lhat;
+                shadow.origin = surfacePoint - (epsilon * ray.direction);
+                float t = getIntersection(shapes[i], shadow);
+                if (tempt > 0.0 && tempt < length(lhat)) {
+                   blocked = 1.0;
+                }
+            }
+
+            if (blocked == 0.0) {
+                float dotProd = max(0.0, dot(surfaceNormal, lhat));
+                color += dotProd * closest.diffuse * light.diffuse * 0.8;
+
+                vec3 rhat = normalize(2.0 * dotProd * surfaceNormal - lhat);
+                float dotProd2 = max(0.0, dot(-ray.direction, rhat));
+                color += light.specular * closest.specular * (pow(dotProd2, closest.shininess)) * 0.8;
+            }
+            vec3 reflection = normalize(ray.direction - (2.0 * dot(ray.direction, surfaceNormal) * surfaceNormal));
+
+           reflectionRay.origin = surfacePoint - epsilon * ray.direction;
+            reflectionRay.direction = reflection;
+
+
+
+            rayTracer.color = color;
+            rayTracer.reflectedRay = reflectionRay;
+        }
+        return rayTracer;
+    }
+    void main() {
+        makeobjs();
+        RayTracerOutput rayTracer = raytrace(shapes, rays[0], light[0]);
+        RayTracerOutput reflection = raytrace(shapes, rayTracer.reflectedRay, light[0]);
+
+        gl_FragColor = vec4(rayTracer.color + reflection.color*0.5*0.8, 1.0);
+   }
+</script>
+
+<script>
+    start_gl("canvas",getvertexandfragshadercontext('vs'), getvertexandfragshadercontext('fs'));
+</script>
+</html>
