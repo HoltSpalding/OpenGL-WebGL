@@ -1,0 +1,7 @@
+Holt Spalding
+Computer Graphics
+
+All the project provided should have executables provided to make them easy to run. 
+Glew and glui must be installed to compile them.
+
+If running the executable in SceneView, load spongebob.xml in the SceneView directory.
