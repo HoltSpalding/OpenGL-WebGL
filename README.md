@@ -11,8 +11,6 @@ in the SceneView directory.
 The Fragment Shader project is an example of how GLSL fragment shaders can be 
 used in  WebGL.
 
-I will eventually add my blender, solidworks, and three.js projects to this 
-repository.
 
 
 
